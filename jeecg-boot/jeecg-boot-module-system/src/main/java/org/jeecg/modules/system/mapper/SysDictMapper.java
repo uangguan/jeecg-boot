@@ -3,9 +3,9 @@ package org.jeecg.modules.system.mapper;
 import java.util.List;
 import java.util.Map;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.ResultType;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import org.jeecg.common.system.vo.DictModel;
@@ -41,6 +41,10 @@ public interface SysDictMapper extends BaseMapper<SysDict> {
 	@Deprecated
 	public List<DictModel> queryTableDictItemsByCodeAndFilter(@Param("table") String table,@Param("text") String text,@Param("code") String code,@Param("filterSql") String filterSql);
 
+	@Deprecated
+	@Select("select ${key} as \"label\",${value} as \"value\" from ${table}")
+	public List<Map<String,String>> getDictByTableNgAlain(@Param("table") String table, @Param("key") String key, @Param("value") String value);
+
 	public String queryDictTextByKey(@Param("code") String code,@Param("key") String key);
 
 	@Deprecated
@@ -70,7 +74,19 @@ public interface SysDictMapper extends BaseMapper<SysDict> {
 	 * @return
 	 */
 	@Deprecated
-	public List<DictModel> queryTableDictItems(@Param("table") String table,@Param("text") String text,@Param("code") String code,@Param("keyword") String keyword); 
+	public List<DictModel> queryTableDictItems(@Param("table") String table,@Param("text") String text,@Param("code") String code,@Param("keyword") String keyword);
+
+
+	/**
+	 * 通过关键字查询出字典表
+	 * @param page
+	 * @param table
+	 * @param text
+	 * @param code
+	 * @param keyword
+	 * @return
+	 */
+	IPage<DictModel> queryTableDictItems(Page<DictModel> page, @Param("table") String table, @Param("text") String text, @Param("code") String code, @Param("keyword") String keyword);
 
 	/**
 	  * 根据表名、显示字段名、存储字段名 查询树
@@ -115,4 +131,26 @@ public interface SysDictMapper extends BaseMapper<SysDict> {
 	 */
 	@Deprecated
 	public Page<DictModel> queryDictTablePageList(Page page, @Param("query") DictQuery query);
+
+
+	/**
+	 * 查询 字典表数据 支持查询条件 分页
+	 * @param page
+	 * @param table
+	 * @param text
+	 * @param code
+	 * @param filterSql
+	 * @return
+	 */
+	IPage<DictModel> queryTableDictWithFilter(Page<DictModel> page, @Param("table") String table, @Param("text") String text, @Param("code") String code, @Param("filterSql") String filterSql);
+
+	/**
+	 * 查询 字典表数据 支持查询条件 查询所有
+	 * @param table
+	 * @param text
+	 * @param code
+	 * @param filterSql
+	 * @return
+	 */
+	List<DictModel> queryAllTableDictItems(@Param("table") String table, @Param("text") String text, @Param("code") String code, @Param("filterSql") String filterSql);
 }

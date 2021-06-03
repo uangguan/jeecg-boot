@@ -6,13 +6,13 @@
 import { filterObj } from '@/utils/util';
 import { deleteAction, getAction,downFile,getFileAccessHttpUrl } from '@/api/manage'
 import Vue from 'vue'
-import { ACCESS_TOKEN } from "@/store/mutation-types"
+import { ACCESS_TOKEN, TENANT_ID } from "@/store/mutation-types"
+import store from '@/store'
+import {Modal} from 'ant-design-vue'
 
 export const JeecgListMixin = {
   data(){
     return {
-      //token header
-      tokenHeader: {'X-Access-Token': Vue.ls.get(ACCESS_TOKEN)},
       /* 查询条件-请不要在queryParam中声明非字符串值的属性 */
       queryParam: {},
       /* 数据源 */
@@ -60,6 +60,17 @@ export const JeecgListMixin = {
         this.initDictConfig();
       }
   },
+  computed: {
+    //token header
+    tokenHeader(){
+      let head = {'X-Access-Token': Vue.ls.get(ACCESS_TOKEN)}
+      let tenantid = Vue.ls.get(TENANT_ID)
+      if(tenantid){
+        head['tenant-id'] = tenantid
+      }
+      return head;
+    }
+  },
   methods:{
     loadData(arg) {
       if(!this.url.list){
@@ -74,8 +85,15 @@ export const JeecgListMixin = {
       this.loading = true;
       getAction(this.url.list, params).then((res) => {
         if (res.success) {
-          this.dataSource = res.result.records;
-          this.ipagination.total = res.result.total;
+          //update-begin---author:zhangyafei    Date:20201118  for：适配不分页的数据列表------------
+          this.dataSource = res.result.records||res.result;
+          if(res.result.total)
+          {
+            this.ipagination.total = res.result.total;
+          }else{
+            this.ipagination.total = 0;
+          }
+          //update-end---author:zhangyafei    Date:20201118  for：适配不分页的数据列表------------
         }
         if(res.code===510){
           this.$message.warning(res.message)
@@ -159,6 +177,8 @@ export const JeecgListMixin = {
             that.loading = true;
             deleteAction(that.url.deleteBatch, {ids: ids}).then((res) => {
               if (res.success) {
+                //重新计算分页问题
+                that.reCalculatePage(that.selectedRowKeys.length)
                 that.$message.success(res.message);
                 that.loadData();
                 that.onClearSelected();
@@ -180,12 +200,25 @@ export const JeecgListMixin = {
       var that = this;
       deleteAction(that.url.delete, {id: id}).then((res) => {
         if (res.success) {
+          //重新计算分页问题
+          that.reCalculatePage(1)
           that.$message.success(res.message);
           that.loadData();
         } else {
           that.$message.warning(res.message);
         }
       });
+    },
+    reCalculatePage(count){
+      //总数量-count
+      let total=this.ipagination.total-count;
+      //获取删除后的分页数
+      let currentIndex=Math.ceil(total/this.ipagination.pageSize);
+      //删除后的分页数<所在当前页
+      if(currentIndex<this.ipagination.current){
+        this.ipagination.current=currentIndex;
+      }
+      console.log('currentIndex',currentIndex)
     },
     handleEdit: function (record) {
       this.$refs.modalForm.edit(record);
@@ -200,6 +233,7 @@ export const JeecgListMixin = {
     handleTableChange(pagination, filters, sorter) {
       //分页、排序、筛选变化时触发
       //TODO 筛选
+      console.log(pagination)
       if (Object.keys(sorter).length > 0) {
         this.isorter.column = sorter.field;
         this.isorter.order = "ascend" == sorter.order ? "asc" : "desc"
@@ -217,6 +251,8 @@ export const JeecgListMixin = {
     modalFormOk() {
       // 新增/修改 成功时，重载列表
       this.loadData();
+      //清空列表选中
+      this.onClearSelected()
     },
     handleDetail:function(record){
       this.$refs.modalForm.edit(record);
@@ -233,7 +269,7 @@ export const JeecgListMixin = {
       if(!fileName || typeof fileName != "string"){
         fileName = "导出文件"
       }
-      let param = {...this.queryParam};
+      let param = this.getQueryParams();
       if(this.selectedRowKeys && this.selectedRowKeys.length>0){
         param['selections'] = this.selectedRowKeys.join(",")
       }
@@ -271,8 +307,7 @@ export const JeecgListMixin = {
             let href = window._CONFIG['domianURL'] + fileUrl
             this.$warning({
               title: message,
-              content: (
-                <div>
+              content: (<div>
                   <span>{msg}</span><br/>
                   <span>具体详情请 <a href={href} target="_blank" download={fileName}>点击下载</a> </span>
                 </div>
@@ -286,7 +321,26 @@ export const JeecgListMixin = {
           this.$message.error(`${info.file.name} ${info.file.response.message}.`);
         }
       } else if (info.file.status === 'error') {
-        this.$message.error(`文件上传失败: ${info.file.msg} `);
+        if (info.file.response.status === 500) {
+          let data = info.file.response
+          const token = Vue.ls.get(ACCESS_TOKEN)
+          if (token && data.message.includes("Token失效")) {
+            Modal.error({
+              title: '登录已过期',
+              content: '很抱歉，登录已过期，请重新登录',
+              okText: '重新登录',
+              mask: false,
+              onOk: () => {
+                store.dispatch('Logout').then(() => {
+                  Vue.ls.remove(ACCESS_TOKEN)
+                  window.location.reload();
+                })
+              }
+            })
+          }
+        } else {
+          this.$message.error(`文件上传失败: ${info.file.msg} `);
+        }
       }
     },
     /* 图片预览 */

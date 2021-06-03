@@ -14,6 +14,7 @@ import java.util.Date;
 import org.jeecg.common.aspect.annotation.Dict;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import java.io.UnsupportedEncodingException;
 
 /**
  * @Description: ${subTab.ftlDescription}
@@ -21,7 +22,7 @@ import io.swagger.annotations.ApiModelProperty;
  * @Date:   ${.now?string["yyyy-MM-dd"]}
  * @Version: V1.0
  */
-@ApiModel(value="${tableName}对象", description="${tableVo.ftlDescription}")
+@ApiModel(value="${subTab.tableName}对象", description="${subTab.ftlDescription}")
 @Data
 @TableName("${subTab.tableName}")
 public class ${subTab.entityName} implements Serializable {
@@ -40,6 +41,8 @@ public class ${subTab.entityName} implements Serializable {
 			<#assign list_field_dictCode=', dictTable = "${po.dictTable}", dicText = "${po.dictText}", dicCode = "${po.dictField}"'>
 		<#elseif po.dictField?default("")?trim?length gt 1>
 			<#assign list_field_dictCode=', dicCode = "${po.dictField}"'>
+		<#elseif po.classType=='sel_tree'>
+			<#assign list_field_dictCode=', dictTable = "${po.dictTable}", dicText = "${po.dictText?split(",")[2]}", dicCode = "${po.dictText?split(",")[0]}"'>
 		</#if>
 	</#if>
 	/**${po.filedComment}*/
@@ -69,8 +72,8 @@ public class ${subTab.entityName} implements Serializable {
   <#if list_field_dictCode?length gt 1>
 	@Dict(${list_field_dictCode?substring(2)})
   </#if>
-	@ApiModelProperty(value = "${po.filedComment}")
-	private <#if po.fieldType=='java.sql.Blob'>byte[]<#else>${po.fieldType}</#if> ${po.fieldName};
+	<#-- 大字段转换 -->
+    <#include "/common/blob.ftl">
 	</#list>
 }
 </#list>
